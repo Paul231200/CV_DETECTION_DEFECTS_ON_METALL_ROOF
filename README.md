@@ -107,14 +107,6 @@ Images are saved under the mounted volume **`defect_pilot_defects_volume`** (see
 
 ---
 
-## Security checklist before pushing to GitHub
-
-- [ ] Rotate any password that ever appeared in a local file committed by mistake (`RTSP_URL`, MQTT, AMQP, GitLab tokens)
-- [ ] Keep **`.env` untracked** (already ignored); only **`.env.example`** is public-facing placeholders  
-- [ ] Review `docker-compose` history — no inline secrets  
-
----
-
 ## Author
 
 <table>
