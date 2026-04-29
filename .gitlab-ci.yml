@@ -1,0 +1,66 @@
+stages:
+  - test
+  - build
+  - deploy
+variables:
+  TAG_LATEST: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME:latest
+  TAG_COMMIT: $CI_REGISTRY_IMAGE/$CI_COMMIT_REF_NAME:$CI_COMMIT_SHORT_SHA
+docker-build:
+  only:
+      refs:
+        - main  #указываем запускать пайплайн только в ветке мастер
+  stage: build
+  image: docker:latest #docker:20-dind      #docker:18.09.7
+  variables:
+    # using "docker" as the host is only possible if you alias the service below
+    DOCKER_HOST: tcp://docker:2375 
+    # could be wrong here but although Docker defaults to overlay2, 
+    # Docker-in-Docker (DIND) does not according to the following GitLab doc: 
+    # https://docs.gitlab.com/ee/ci/docker/using_docker_build.html#use-the-overlayfs-driver
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: ""
+  services:
+    - name: docker:dind
+      alias: docker
+      # in our experience although you'd assume this would be sufficient, this did 
+      # nothing to prevent connection errors without `DOCKER_TLS_CERTDIR` being set 
+      # to an empty string, and I would call that beyond mildly infuriating..
+      command: ["--tls=false"]
+    - docker:dind    #docker:18.09.7-dind
+  before_script:
+   - echo $https_proxy
+   - echo $http_proxy
+   - echo $HTTPS_PROXY
+   - echo $HTTP_PROXY
+   - echo $CI_REGISTRY
+   - docker login -u $CI_TKN_LN -p $CI_TKN_PW $CI_REGISTRY
+  script:
+    - docker logout
+    - docker build --pull -t $TAG_LATEST .
+    - docker login -u $CI_TKN_LN -p $CI_TKN_PW $CI_REGISTRY
+    - docker images
+    - echo $DOCKER_IMAGE_NAME 
+    - echo $CI_REGISTRY_IMAGE:latest
+    - docker tag $TAG_LATEST $CI_REGISTRY_IMAGE/master:latest
+    - docker push $TAG_LATEST
+
+deploy:
+  only:
+    refs:
+      - main
+  image: alpine:latest
+  stage: deploy
+  before_script:
+    - apk update && apk add openssh-client    #для альпины
+    - chmod 400 $SSH_PRIVATE_KEY
+  script:
+    #- ssh -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no admuser@$DAB_SERVER_IP "docker stop roof_sauron > /dev/null 2>&1" || FAILED=true
+    #- ssh -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no admuser@$DAB_SERVER_IP "docker rm roof_sauron > /dev/null 2>&1" || FAILED=true
+    #- ssh -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no admuser@$DAB_SERVER_IP "docker rm roof_sauron > /dev/null 2>&1" || FAILED=true
+    #- ssh -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no admuser@$DAB_SERVER_IP "docker rmi -f $CI_REGISTRY_IMAGE/main:latest > /dev/null 2>&1" || FAILED=true
+   #- ssh -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no admuser@$DAB_SERVER_IP "docker images"
+    #- ssh -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no admuser@$DAB_SERVER_IP "docker ps -a"
+    #- ssh -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no admuser@$DAB_SERVER_IP "docker login $CI_REGISTRY -u $CI_TKN_LN -p $CI_TKN_PW"
+    #- ssh -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no admuser@$DAB_SERVER_IP "docker pull $TAG_LATEST"
+    - ssh -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no admuser@$DAB_SERVER_IP "docker images"
+   # - ssh -i $SSH_PRIVATE_KEY -o StrictHostKeyChecking=no admuser@$DAB_SERVER_IP "docker run -d --env-file roof_sauron.env --name roof_sauron $CI_REGISTRY_IMAGE/main:latest"

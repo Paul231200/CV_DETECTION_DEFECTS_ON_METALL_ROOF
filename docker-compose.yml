@@ -1,0 +1,15 @@
+services:
+  defect_pilot:
+    build: .
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - defects_volume:/app/Defects_photo
+    command: ["python", "main.py", "--use-original", "--model", "models/Defects_without_cink.pt"]
+    restart: unless-stopped
+
+volumes:
+  defects_volume:
+    name: defect_pilot_defects_volume
